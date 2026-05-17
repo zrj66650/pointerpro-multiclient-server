@@ -1,2 +1,33 @@
 /libanimate
 
+# executables
+animate_server
+animate_client
+
+# fifo files
+FIFO_*
+
+# generated animation files
+*.gif
+*.mp4
+*.dat
+*.log
+
+# test files
+*.txt
+
+# object files
+*.o
+
+# macOS
+.DS_Store
+
+# vscode
+.vscode/
+
+# CLion
+.idea/
+
+# backup files
+*~
+*.swp
