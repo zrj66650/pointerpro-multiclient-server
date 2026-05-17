@@ -4,7 +4,6 @@ LDFLAGS = -lpthread
 
 default: animate_server animate_client
 
-# 同时编译 animate_server.c 和 animate.c
 animate_server: animate_server.c animate.c
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 

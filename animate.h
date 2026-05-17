@@ -228,5 +228,18 @@ void animate_generate_frame(const struct canvas* canvas,
                             size_t frame, size_t frame_rate,
                             void* buf);
 
+/**
+ * @brief Get canvas width
+ * @param canvas the canvas
+ * @return width in pixels
+ */
+size_t animate_get_width(struct canvas *canvas);
+
+/**
+ * @brief Get canvas height
+ * @param canvas the canvas
+ * @return height in pixels
+ */
+size_t animate_get_height(struct canvas *canvas);
 
 #endif /* ANIMATE_H */

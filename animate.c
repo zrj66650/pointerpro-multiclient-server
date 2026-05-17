@@ -450,6 +450,16 @@ void animate_generate_frame(const struct canvas* canvas, size_t frame,
     }
 }
 
+size_t animate_get_width(struct canvas *canvas) {
+    if (canvas == NULL) return 0;
+    return canvas->width;
+}
+
+size_t animate_get_height(struct canvas *canvas) {
+    if (canvas == NULL) return 0;
+    return canvas->height;
+}
+
 // Optional extension
 void animate_set_animation_function(struct sprite_placement* sprite_placement,
                                    animate_fn, void* priv) {
