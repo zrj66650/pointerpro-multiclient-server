@@ -500,166 +500,32 @@ void process_request(struct request req) {
         return;
     }
     if (strncmp(cmd, "create_canvas ", 14) == 0) {
-
-        size_t height;
-        size_t width;
-
-        unsigned background;
-
-        if (
-            sscanf(
-                cmd + 14,
-                "%zu %zu %u",
-                &height,
-                &width,
-                &background
-            ) != 3
-        ) {
-
+        size_t height, width;
+        if (sscanf(cmd + 14, "%zu %zu", &height, &width) != 2) {
             send_reply(fd_write, "-1\n");
-
             return;
         }
-
-        struct canvas* canvas =
-            animate_create_canvas(
-                height,
-                width,
-                background
-            );
-
-        if (canvas == NULL) {
-
-            send_reply(fd_write, "-2\n");
-
-            return;
-        }
-
-        handle_t handle =
-            create_handle(
-                canvas,
-                HANDLE_CANVAS,
-                client
-            );
-
-        if (handle == 0) {
-
-            animate_destroy_canvas(canvas);
-
-            send_reply(fd_write, "-2\n");
-
-            return;
-        }
-
-        add_owned_canvas(
-            client,
-            handle
-        );
-
+        color_t background = animate_color_argb(255, 255, 255, 255);
+        struct canvas *canvas = animate_create_canvas(height, width, background);
+        if (!canvas) { send_reply(fd_write, "-2\n"); return; }
+        handle_t handle = create_handle(canvas, HANDLE_CANVAS, client);
+        if (handle == 0) { animate_destroy_canvas(canvas); send_reply(fd_write, "-2\n"); return; }
+        add_owned_canvas(client, handle);
         char reply[BUFFER_SIZE];
-
-        snprintf(
-            reply,
-            BUFFER_SIZE,
-            "0 %lu\n",
-            handle
-        );
-
-        send_reply(
-            fd_write,
-            reply
-        );
-
+        snprintf(reply, BUFFER_SIZE, "0 %lu\n", handle);
+        send_reply(fd_write, reply);
         return;
     }
     if (strncmp(cmd, "create_rectangle ", 17) == 0) {
-
-        size_t width;
-
-        size_t height;
-
-        unsigned color;
-
-        int filled;
-
-        if (
-
-            sscanf(
-                cmd + 17,
-                "%zu %zu %u %d",
-                &width,
-                &height,
-                &color,
-                &filled
-            )
-
-            != 4
-
-        ) {
-
-            send_reply(
-                fd_write,
-                "-1\n"
-            );
-
-            return;
-        }
-
-        struct sprite* sprite =
-
-            animate_create_rectangle(
-                width,
-                height,
-                color,
-                filled
-            );
-
-        if (sprite == NULL) {
-
-            send_reply(
-                fd_write,
-                "-2\n"
-            );
-
-            return;
-        }
-
-        handle_t handle =
-
-            create_handle(
-                sprite,
-                HANDLE_SPRITE,
-                client
-            );
-
-        if (handle == 0) {
-
-            animate_destroy_sprite(
-                sprite
-            );
-
-            send_reply(
-                fd_write,
-                "-2\n"
-            );
-
-            return;
-        }
-
-        char reply[BUFFER_SIZE];
-
-        snprintf(
-            reply,
-            BUFFER_SIZE,
-            "0 %lu\n",
-            handle
-        );
-
-        send_reply(
-            fd_write,
-            reply
-        );
-
+        int r,g,b; size_t w,h;
+        if (sscanf(cmd+17, "%d %d %d %zu %zu", &r,&g,&b,&w,&h) != 5) { send_reply(fd_write,"-1\n"); return; }
+        color_t color = animate_color_argb(255,r,g,b);
+        struct sprite *sprite = animate_create_rectangle(w,h,color,true);
+        if (!sprite) { send_reply(fd_write,"-2\n"); return; }
+        handle_t handle = create_handle(sprite, HANDLE_SPRITE, client);
+        if (handle == 0) { animate_destroy_sprite(sprite); send_reply(fd_write,"-2\n"); return; }
+        char reply[BUFFER_SIZE]; snprintf(reply, BUFFER_SIZE, "0 %lu\n", handle);
+        send_reply(fd_write, reply);
         return;
     }
     if (strncmp(cmd, "create_circle ", 14) == 0) {
@@ -694,21 +560,8 @@ void process_request(struct request req) {
         if (!client_owns_handle(client, ph)) { send_reply(fd_write,"-2\n"); return; }
         struct placement_wrapper *pw = get_pointer(ph, HANDLE_PLACEMENT);
         if (!pw) { send_reply(fd_write,"-2\n"); return; }
-        pw->x = nx;
-
-        pw->y = ny;
-
-        if (pw->placement_ptr != NULL) {
-
-            pw->placement_ptr->x = nx;
-
-            pw->placement_ptr->y = ny;
-        }
-
-        send_reply(
-            fd_write,
-            "0\n"
-        );
+        pw->x = nx; pw->y = ny;
+        send_reply(fd_write, "0\n");
         return;
     }
     if (strncmp(cmd, "remove_sprite ", 14) == 0) {
@@ -763,17 +616,9 @@ void process_request(struct request req) {
         send_reply(fd_write, "0\n");
         return;
     }
-    if (strcmp(cmd, "Disconnect\n") == 0) {
-
+    if (strcmp(cmd, "disconnect\n") == 0) {
         send_reply(fd_write, "BYE\n");
-
-        close(fd_write);
-
-        unlink(client->fifo_c2s);
-        unlink(client->fifo_s2c);
-
         client->should_disconnect = true;
-
         return;
     }
     send_reply(fd_write, "Unknown command\n");

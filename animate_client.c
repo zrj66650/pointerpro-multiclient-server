@@ -81,12 +81,17 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    printf("Connected to server\n");
+
     bool logged_in = false;
     char username[64] = {0};
     char input[BUFFER_SIZE];
 
     /* Main command loop */
     while (1) {
+        printf("> ");
+        fflush(stdout);
+
         if (fgets(input, BUFFER_SIZE, stdin) == NULL)
             break;
 
@@ -119,34 +124,18 @@ int main(int argc, char *argv[]) {
         }
 
         /* Remove trailing newline from reply for display */
-        reply[
-            strcspn(
-                reply,
-                "\r\n"
-            )
-        ] = '\0';
+        char *newline = strchr(reply, '\n');
+        if (newline) *newline = '\0';
 
         /* Handle different response types */
         if (strncmp(reply, "Reject", 6) == 0) {
             printf("%s\n", reply);
             free(reply);
             break;
-        } else if (
-
-            strcmp(
-                reply,
-                "BYE"
-            ) == 0
-
-        ) {
-
+        } else if (strcmp(reply, "BYE") == 0) {
+            printf("Disconnected\n");
             free(reply);
-
-            close(fd_write);
-
-            close(fd_read);
-
-            return 0;
+            break;
         } else if (reply[0] == '-' && strlen(reply) >= 2 &&
                    (reply[1] == '1' || reply[1] == '2' || reply[1] == '3')) {
             switch (reply[1]) {
@@ -166,6 +155,8 @@ int main(int argc, char *argv[]) {
             }
         } else if (reply[0] >= '0' && reply[0] <= '9') {
             /* Balance response from login */
+            int balance = atoi(reply);
+            printf("Welcome %s. Your balance is %d\n", username, balance);
             logged_in = true;
         } else {
             printf("Response: %s\n", reply);
@@ -173,6 +164,10 @@ int main(int argc, char *argv[]) {
 
         free(reply);
     }
+
+    /* Send disconnect if logged in */
+    if (logged_in)
+        send_command(fd_write, fd_read, "Disconnect\n");
 
     close(fd_write);
     close(fd_read);
