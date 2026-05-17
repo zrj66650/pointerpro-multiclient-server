@@ -26,7 +26,6 @@ char *send_command(int fd_write, int fd_read, const char *cmd) {
 }
 
 int main(int argc, char *argv[]) {
-    /* Command line argument check */
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <server pid>\n", argv[0]);
         return 1;
@@ -81,8 +80,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("Connected to server\n");
-
     bool logged_in = false;
     char username[64] = {0};
     char input[BUFFER_SIZE];
@@ -135,7 +132,9 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(reply, "BYE") == 0) {
             printf("Disconnected\n");
             free(reply);
-            break;
+            close(fd_write);
+            close(fd_read);
+            return 0;
         } else if (reply[0] == '-' && strlen(reply) >= 2 &&
                    (reply[1] == '1' || reply[1] == '2' || reply[1] == '3')) {
             switch (reply[1]) {
@@ -165,9 +164,10 @@ int main(int argc, char *argv[]) {
         free(reply);
     }
 
-    /* Send disconnect if logged in */
-    if (logged_in)
+    /* Send disconnect if logged in and not already closed */
+    if (logged_in) {
         send_command(fd_write, fd_read, "Disconnect\n");
+    }
 
     close(fd_write);
     close(fd_read);
