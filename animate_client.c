@@ -3,27 +3,33 @@
 
 volatile sig_atomic_t connected = 0;
 
+
 /* SIGUSR2 handler - called when server confirms connection */
 void handle_sigusr2(int sig) {
     (void)sig;
     connected = 1;
 }
 
+
 /* Send command to server and read reply */
 char *send_command(int fd_write, int fd_read, const char *cmd) {
     write(fd_write, cmd, strlen(cmd));
 
     char *reply = malloc(BUFFER_SIZE);
+
     if (!reply) return NULL;
 
     ssize_t bytes_read = read(fd_read, reply, BUFFER_SIZE - 1);
+
     if (bytes_read <= 0) {
         free(reply);
         return NULL;
     }
+
     reply[bytes_read] = '\0';
     return reply;
 }
+
 
 int main(int argc, char *argv[]) {
     /* Command line argument check */
@@ -40,6 +46,7 @@ int main(int argc, char *argv[]) {
     sa.sa_handler = handle_sigusr2;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
+
     if (sigaction(SIGUSR2, &sa, NULL) == -1) {
         perror("sigaction");
         return 1;
@@ -53,10 +60,12 @@ int main(int argc, char *argv[]) {
 
     /* Wait for SIGUSR2 with timeout (approx 1 second) */
     int wait_count = 0;
+
     while (!connected && wait_count < 100) {
         usleep(10000);
         wait_count++;
     }
+
     if (!connected) {
         printf("Connection timeout\n");
         return 1;
@@ -69,12 +78,14 @@ int main(int argc, char *argv[]) {
 
     /* Open FIFOs (write first, then read) */
     int fd_write = open(fifo_c2s, O_WRONLY);
+
     if (fd_write == -1) {
         perror("open c2s");
         return 1;
     }
 
     int fd_read = open(fifo_s2c, O_RDONLY);
+
     if (fd_read == -1) {
         perror("open s2c");
         close(fd_write);
@@ -92,16 +103,20 @@ int main(int argc, char *argv[]) {
         printf("> ");
         fflush(stdout);
 
-        if (fgets(input, BUFFER_SIZE, stdin) == NULL)
+        if (fgets(input, BUFFER_SIZE, stdin) == NULL) {
             break;
+        }
 
         /* Remove trailing newline */
         size_t len = strlen(input);
-        if (len > 0 && input[len-1] == '\n')
-            input[len-1] = '\0';
 
-        if (strlen(input) == 0)
+        if (len > 0 && input[len - 1] == '\n') {
+            input[len - 1] = '\0';
+        }
+
+        if (strlen(input) == 0) {
             continue;
+        }
 
         /* Check login state (except for Login command) */
         if (!logged_in && strncmp(input, "Login", 5) != 0) {
@@ -110,12 +125,14 @@ int main(int argc, char *argv[]) {
         }
 
         /* Store username for welcome message */
-        if (strncmp(input, "Login ", 6) == 0)
+        if (strncmp(input, "Login ", 6) == 0) {
             strcpy(username, input + 6);
+        }
 
         /* Send command with required newline */
         char cmd_with_newline[BUFFER_SIZE];
         snprintf(cmd_with_newline, BUFFER_SIZE, "%s\n", input);
+
         char *reply = send_command(fd_write, fd_read, cmd_with_newline);
 
         if (!reply) {
@@ -125,7 +142,10 @@ int main(int argc, char *argv[]) {
 
         /* Remove trailing newline from reply for display */
         char *newline = strchr(reply, '\n');
-        if (newline) *newline = '\0';
+
+        if (newline) {
+            *newline = '\0';
+        }
 
         /* Handle different response types */
         if (strncmp(reply, "Reject", 6) == 0) {
@@ -139,10 +159,18 @@ int main(int argc, char *argv[]) {
         } else if (reply[0] == '-' && strlen(reply) >= 2 &&
                    (reply[1] == '1' || reply[1] == '2' || reply[1] == '3')) {
             switch (reply[1]) {
-                case '1': printf("RPC Failed\n"); break;
-                case '2': printf("Value error\n"); break;
-                case '3': printf("Internal error\n"); break;
-                default:  printf("Unknown error: %s\n", reply); break;
+                case '1':
+                    printf("RPC Failed\n");
+                    break;
+                case '2':
+                    printf("Value error\n");
+                    break;
+                case '3':
+                    printf("Internal error\n");
+                    break;
+                default:
+                    printf("Unknown error: %s\n", reply);
+                    break;
             }
         } else if (strncmp(reply, "0", 1) == 0) {
             if (reply[1] == ' ' && reply[2] != '\0') {
@@ -166,8 +194,9 @@ int main(int argc, char *argv[]) {
     }
 
     /* Send disconnect if logged in */
-    if (logged_in)
+    if (logged_in) {
         send_command(fd_write, fd_read, "Disconnect\n");
+    }
 
     close(fd_write);
     close(fd_read);
