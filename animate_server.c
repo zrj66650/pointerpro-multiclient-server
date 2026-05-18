@@ -323,18 +323,29 @@ int generate_animation(struct canvas *canvas, const char *filename,
     if (pid == 0) {
         freopen(log_filename, "w", stderr);
         freopen(log_filename, "a", stdout);
-        char frame_rate_str[32], width_str[32], height_str[32];
-        snprintf(frame_rate_str, sizeof(frame_rate_str), "%d", frame_rate);
-        snprintf(width_str, sizeof(width_str), "%zu", width);
-        snprintf(height_str, sizeof(height_str), "%zu", height);
-        execlp("ffmpeg", "ffmpeg",
+        char frame_rate_str[32];
+        char size_str[64];
+
+        snprintf(frame_rate_str,
+                 sizeof(frame_rate_str),
+                 "%d",
+                 frame_rate);
+
+        snprintf(size_str,
+                 sizeof(size_str),
+                 "%zux%zu",
+                 width,
+                 height);
+        execlp("ffmpeg",
+               "ffmpeg",
                "-f", "rawvideo",
                "-pix_fmt", "rgba",
-               "-s", width_str, "x", height_str,
+               "-s", size_str,
                "-r", frame_rate_str,
                "-i", dat_filename,
                "-c:v", "libx264",
-               "-y", mp4_filename,
+               "-y",
+               mp4_filename,
                NULL);
         exit(1);
     }
@@ -588,20 +599,132 @@ void process_request(struct request req) {
         return;
     }
     if (strncmp(cmd, "share_canvas ", 13) == 0) {
-        handle_t ch; char tuser[64];
-        if (sscanf(cmd+13, "%lu %63s", &ch, tuser) != 2) { send_reply(fd_write,"-1\n"); return; }
-        if (handle_table[ch].owner != client) { send_reply(fd_write,"-2\n"); return; }
-        if (handle_table[ch].type != HANDLE_CANVAS) { send_reply(fd_write,"-2\n"); return; }
+
+        handle_t ch;
+
+        char username[64];
+
+        if (sscanf(cmd + 13,
+                   "%lu %63s",
+                   &ch,
+                   username) != 2) {
+
+            send_reply(fd_write, "-1\n");
+
+            return;
+        }
+
+        if (ch >= next_handle) {
+
+            send_reply(fd_write, "-2\n");
+
+            return;
+        }
+
+        if (handle_table[ch].type != HANDLE_CANVAS) {
+
+            send_reply(fd_write, "-2\n");
+
+            return;
+        }
+
+        if (handle_table[ch].owner != client) {
+
+            send_reply(fd_write, "-2\n");
+
+            return;
+        }
+
         int bal;
-        if (check_user(tuser, &bal) != 1) { send_reply(fd_write,"-2\n"); return; }
-        add_shared_user(ch, tuser);
+
+        if (check_user(username, &bal) != 1) {
+
+            send_reply(fd_write, "-2\n");
+
+            return;
+        }
+
+        add_shared_user(ch, username);
+
         send_reply(fd_write, "0\n");
+
         return;
     }
     if (strncmp(cmd, "barrier ", 8) == 0) {
+
         handle_t ch;
-        if (sscanf(cmd+8, "%lu", &ch) != 1) { send_reply(fd_write,"-1\n"); return; }
-        send_reply(fd_write, "0\n");
+
+        if (sscanf(cmd + 8,
+                   "%lu",
+                   &ch) != 1) {
+
+            send_reply(fd_write,
+                       "-1\n");
+
+            return;
+        }
+
+        if (ch >= next_handle) {
+
+            send_reply(fd_write,
+                       "-2\n");
+
+            return;
+        }
+
+        if (handle_table[ch].type != HANDLE_CANVAS) {
+
+            send_reply(fd_write,
+                       "-2\n");
+
+            return;
+        }
+
+        while (1) {
+
+            bool alive = false;
+
+            pthread_mutex_lock(
+                &client_list_mutex
+            );
+
+            for (int i = 0;
+                 i < client_count;
+                 i++) {
+
+                struct client_info *c =
+                    all_clients[i];
+
+                if (c == client)
+                    continue;
+
+                if (strcmp(c->username,
+                           "") == 0)
+                    continue;
+
+                if (is_canvas_shared_with_user(
+                        ch,
+                        c->username)) {
+
+                    alive = true;
+
+                    break;
+                }
+            }
+
+            pthread_mutex_unlock(
+                &client_list_mutex
+            );
+
+            if (!alive)
+                break;
+
+            usleep(10000);
+        }
+
+        send_reply(fd_write,
+                   "0\n");
+
         return;
     }
     if (strncmp(cmd, "destroy_canvas ", 15) == 0) {
@@ -610,10 +733,30 @@ void process_request(struct request req) {
         struct canvas *canvas = get_pointer(ch, HANDLE_CANVAS);
         if (!canvas) { send_reply(fd_write,"-2\n"); return; }
         if (handle_table[ch].owner != client) { send_reply(fd_write,"-2\n"); return; }
-        animate_destroy_canvas(canvas);
-        remove_handle(ch);
-        remove_owned_canvas(client, ch);
-        send_reply(fd_write, "0\n");
+        if (!is_canvas_in_use_by_others(
+                ch,
+                client)) {
+
+            animate_destroy_canvas(
+                canvas
+            );
+
+            remove_handle(ch);
+
+        }
+        else {
+
+            handle_table[ch].owner =
+                NULL;
+        }
+
+        remove_owned_canvas(
+            client,
+            ch
+        );
+
+        send_reply(fd_write,
+                   "0\n");
         return;
     }
     if (strcmp(cmd, "disconnect\n") == 0) {
@@ -682,3 +825,6 @@ int main(int argc, char *argv[]) {
     free(workers);
     return 0;
 }
+
+
+if (strncmp(cmd, "share_canvas ", 13) == 0) 
