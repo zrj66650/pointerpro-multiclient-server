@@ -980,7 +980,7 @@ int main(int argc, char *argv[]) {
         perror("malloc");
         return 1;
     }
-
+is_canvas_in_use_by_others
     for (int i = 0; i < threadpool_size; i++) {
         pthread_create(&workers[i], NULL, worker_thread, NULL);
     }
